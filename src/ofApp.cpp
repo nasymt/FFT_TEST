@@ -14,40 +14,24 @@ void ofApp::setup(){
     left = new float[BUFFER_SIZE];
     right = new float[BUFFER_SIZE];
     
-    for (int i = 0; i < NUM_WINDOWS; i++)
-    {
-        for (int j = 0; j < BUFFER_SIZE/2; j++)
-        {
+    for (int i = 0; i < NUM_WINDOWS; i++){
+        for (int j = 0; j < BUFFER_SIZE/2; j++){
             freq[i][j] = 0;
         }
     }
+    font.loadFont("Avenir.ttc", 14);
     
-    ofSetColor(0x666666);
-    lmh_bottom[0]=1;
-    lmh_top[0]=2;
-    lmh_min[0]=0;
-    lmh_max[0]=5;
-    lmh_newMin[0]=0;
-    lmh_newMax[0]=1;
-    lmh_bottom[1]=3;
-    lmh_top[1]=10;
-    lmh_min[1]=0;
-    lmh_max[1]=1;
-    lmh_newMin[1]=0;
-    lmh_newMax[1]=1;
-    lmh_bottom[2]=50;
-    lmh_top[2]=60;
-    lmh_min[2]=0;
-    lmh_max[2]=0.5;
-    lmh_newMin[2]=0;
-    lmh_newMax[2]=2;
-    lmh_length[0] = lmh_top[0] - lmh_bottom[0];
-    lmh_length[1] = lmh_top[1] - lmh_bottom[1];
-    lmh_length[2] = lmh_top[2] - lmh_bottom[2];
+    band_bottom[0]=1,band_bottom[1]=3,band_bottom[2]=50;
+    band_top[0]=2,band_top[1]=10,band_top[2]=60;
+    map_min[0]=0,map_min[1]=0,map_min[2]=0;
+    map_max[0]=5,map_max[1]=1,map_max[2]=0.5;
+    map_newMin[0]=0,map_newMin[1]=0,map_newMin[2]=0;
+    map_newMax[0]=1,map_newMax[1]=1,map_newMax[2]=2;
     mode=0;
     rate=0.05;
     smoothRate = 0.7;
     for(int i=0;i<3;i++){
+        lmh_length[i] = band_top[i] - band_bottom[i];
         pre_val[i]=1;
     }
 }
@@ -55,7 +39,8 @@ void ofApp::setup(){
 
 //--------------------------------------------------------------
 void ofApp::update(){
-    ofBackground(80,80,20);
+//    ofBackground(80,80,20);
+    ofBackground(150,150,150);
 }
 
 //--------------------------------------------------------------
@@ -78,171 +63,214 @@ void ofApp::draw(){
     
     /* draw the FFT */
     for (int i = 1; i < (int)(BUFFER_SIZE/2); i++){
-        if(lmh_bottom[0]<=i&&lmh_top[0]>i)ofSetColor(255, 0, 0);
-        else if(lmh_bottom[1]<=i&&lmh_top[1]>i)ofSetColor(0, 255, 0);
-        else if(lmh_bottom[2]<=i&&lmh_top[2]>i)ofSetColor(0, 0, 255);
+        if(band_bottom[0]<=i&&band_top[0]>i)ofSetColor(255, 0, 0);
+        else if(band_bottom[1]<=i&&band_top[1]>i)ofSetColor(0, 255, 0);
+        else if(band_bottom[2]<=i&&band_top[2]>i)ofSetColor(0, 0, 255);
         else ofSetColor(50,50,50);
         ofLine(100+(i*8),400,100+(i*8),400-magnitude[i]*10.0f);
     }
     
     for(int i=0;i<3;i++){
-        for(int j=lmh_bottom[i];j<lmh_top[i];j++){
-            if(magnitude[j]!=INFINITY)lmh_val[i]+=magnitude[j];
+        for(int j=band_bottom[i];j<band_top[i];j++){
+            if(magnitude[j]!=INFINITY)val[i]+=magnitude[j];
         }
     }
-    //--------小数点第3位で切り捨て
-    lmh_val[0]*=100;
-    lmh_val[0]=floor(lmh_val[0]);
-    lmh_val[0]/=100;
+    ofSetColor(255);
+    for(int i=0;i<3;i++){
+        float temp_val = val[i]/lmh_length[i];
+        if(temp_val<map_min[i])bCut[i]=true;
+        if(temp_val>vol_max[i]){
+            vol_max[i]=temp_val;
+            map_max[i]=vol_max[i];
+        }
+        float mapped = ofMap(temp_val,map_min[i],map_max[i],map_newMin[i],map_newMax[i]);
+        if(bSmooth){//平滑化あり
+            pre_ave[i] = mapped;
+            val[i] = smoothRate*pre_ave[i] + (1-smoothRate)*pre_val[i];
+            pre_val[i]=val[i];
+        }else{//平滑化なし
+            val[i] = mapped;
+        }
+        
+        
+        if(bCut[i]){//一定値以下切り捨て
+            bCut[i]=false;
+            val[i]=0;
+        }
+        ofCircle(200+i*300, 100, val[i]*50);
+        string string_index[] = {"low:","mid:","high:"};
+        sBand_data[i] =ofToString(string_index[i])+ofToString(map_min[i])+":"+ofToString(map_max[i])+":"+ofToString(map_newMin[i])+":"+ofToString(map_newMax[i])+"  val:"+ofToString(temp_val);
+        ofDrawBitmapString(sBand_data[i], 100, 480+i*30);
+    }
+    
+    ofSetColor(255);
+    ofDrawBitmapString(ofToString(mode),100,450);
+    ofDrawBitmapString("bSmooth "+ofToString(bSmooth)+":"+ofToString(smoothRate), 100, 570);
+    if(bSelectPreset)ofDrawBitmapString("===SELECT PRESET(Press key 1-2, 0 is reset)=== ", 100, 600);
+    
+    
+    if(bSmooth){
+        ofSetColor(200, 0, 103);
+        ofRect(100,650,100,50);
+        ofSetColor(0, 0, 0);
+        font.drawString("smooth", 115, 678);
+    }
+    else{
+        ofSetColor(0, 0, 0);
+        ofRect(100,650,100,50);
+        ofSetColor(200, 0, 103);
+        font.drawString("no smooth", 105, 678);
+    }
+    
+    if(!bReset){
+        ofSetColor(0, 0, 0);
+        ofRect(230, 650, 100, 50);
+        ofSetColor(200, 0, 103);
+        font.drawString("Reset", 245, 678);
+    }else {
+        ofSetColor(200, 0, 103);
+        ofRect(230,650,100,50);
+        ofSetColor(0, 0, 0);
+        font.drawString("Reset", 245, 678);
+        bReset=false;
+        for(int i=0;i<3;i++)vol_max[i]=0;
+    }
+    
     
     for(int i=0;i<3;i++){
-        lmh_ave[i] = lmh_val[i]/lmh_length[i];
-        if(lmh_ave[i]<lmh_min[i])bCut[i]=true;
-        float mapped = ofMap(lmh_ave[i],lmh_min[i],lmh_max[i],lmh_newMin[i],lmh_newMax[i]);
-        if(bSmooth){
-            pre_ave[i] = mapped;
-            lmh_val[i] = smoothRate*pre_ave[i] + (1-smoothRate)*pre_val[i];
-            pre_val[i]=lmh_val[i];
-        }else{
-            lmh_val[i] = mapped;
-        }
-        
-        if(bCut[i]){
-            bCut[i]=false;
-            lmh_val[i]=0;
-        }
+        rect_color[i] = ofMap(val[i], 0, 2, 0, 255);
+        ofSetColor(rect_color[i], rect_color[i], rect_color[i]);
+        ofRect(400+i*200,450,150,150);
     }
-        
-        ofCircle(200, 100, lmh_val[0]*50);
-        ofCircle(500, 100, lmh_val[1]*50);
-        ofCircle(800, 100, lmh_val[2]*50);
-        
-        ofSetColor(255);
+    
+    
+}
 
-        string low_string = "low"+ofToString(lmh_min[0])+":"+ofToString(lmh_max[0])+":"+ofToString(lmh_newMin[0])+":"+ofToString(lmh_newMax[0])+"  val:"+ofToString(lmh_ave[0]);
-        string mid_string = "mid"+ofToString(lmh_min[1])+":"+ofToString(lmh_max[1])+":"+ofToString(lmh_newMin[1])+":"+ofToString(lmh_newMax[1])+"  val:"+ofToString(lmh_ave[1]);
-        string high_string = "high"+ofToString(lmh_min[2])+":"+ofToString(lmh_max[2])+":"+ofToString(lmh_newMin[2])+":"+ofToString(lmh_newMax[2])+"  val:"+ofToString(lmh_ave[2]);
-        
-        ofDrawBitmapString(ofToString(mode),100,450);
-        ofDrawBitmapString(low_string,100,500);
-        ofDrawBitmapString(mid_string,100,550);
-        ofDrawBitmapString(high_string,100,600);
-        ofDrawBitmapString("bSmooth "+ofToString(bSmooth)+":"+ofToString(smoothRate), 100, 650);
-    
-        low_color = ofMap(lmh_val[0],0,2,0,255);
-        mid_color = ofMap(lmh_val[1],0,2,0,255);
-        high_color = ofMap(lmh_val[2], 0, 2, 0, 255);
-        ofSetColor(low_color,low_color,low_color);
-        ofRect(300,500,150,150);
-        ofSetColor(mid_color,mid_color,mid_color);
-        ofRect(500,500,150,150);
-        ofSetColor(high_color,high_color,high_color);
-        ofRect(700,500,150,150);
+
+//--------------------------------------------------------------
+void ofApp::keyPressed  (int key){
+    /*---------------------------------
+     モード選択:
+     ◆リターン：モード変更
+     0：低中高音の帯域指定
+     1：数値のマッピング用
+     ◆シフト：平滑化オンオフ
+     　キーの上下で平滑化係数の調整
+     ◆右コマンド：プリセットの選択
+     
+     ---------------------------------*/
+    if(key==OF_KEY_RETURN){
+        if(mode==0)mode=1;
+        else if(mode==1)mode=0;
+        cout<<"mode:"<<mode<<endl;
     }
-    
-    
-    //--------------------------------------------------------------
-    void ofApp::keyPressed  (int key){
-        /*---------------------------------
-         モード選択:0-低中高音の帯域指定 1-数値のマッピング用
-         
-         ---------------------------------*/
+    else if(key==OF_KEY_SHIFT){
+        if(bSmooth)bSmooth=false;
+        else bSmooth=true;
+    }else if(key==OF_KEY_RIGHT_COMMAND){
+        if(bSelectPreset)bSelectPreset=false;
+        else bSelectPreset=true;
+    }
+    if(bSmooth){
+        if(key==OF_KEY_UP)smoothRate+=0.05;
+        else if(key==OF_KEY_DOWN)smoothRate-=0.05;
+    }
+    if(bSelectPreset){
+        if(key=='1')preset_index=1;
+        else if(key=='2')preset_index=2;
+        else if(key=='0')preset_index=0;
         if(key==OF_KEY_RETURN){
-            if(mode==0)mode=1;
-            else if(mode==1)mode=0;
-            cout<<"mode:"<<mode<<endl;
+            setPreset(preset_index);
+            bSelectPreset=false;
         }
-        else if(key==OF_KEY_SHIFT){
-            if(bSmooth)bSmooth=false;
-            else bSmooth=true;
-        }
-        if(bSmooth){
-            if(key==OF_KEY_UP)smoothRate+=0.05;
-            else if(key==OF_KEY_DOWN)smoothRate-=0.05;
-        }
-        if(mode==0){
-            if(key == 'p')cout<<low_ave<<":"<<mid_ave<<":"<<high_ave<<endl;
-            else {
-                if(key == 'q')lmh_bottom[0]++;
-                else if(key=='a')lmh_bottom[0]--;
-                else if(key=='w')lmh_top[0]++;
-                else if(key=='s')lmh_top[0]--;
-                else if(key=='e')lmh_bottom[1]++;
-                else if(key=='d')lmh_bottom[1]--;
-                else if(key=='r')lmh_top[1]++;
-                else if(key=='f')lmh_top[1]--;
-                else if(key=='t')lmh_bottom[2]++;
-                else if(key=='g')lmh_bottom[2]--;
-                else if(key=='y')lmh_top[2]++;
-                else if(key=='h')lmh_top[2]--;
-                lmh_length[0] = lmh_top[0] - lmh_bottom[0];
-                lmh_length[1] = lmh_top[1] - lmh_bottom[1];
-                lmh_length[2] = lmh_top[2] - lmh_bottom[2];
-                
-                cout<<"low -> "<<lmh_bottom[0]<<" : "<<lmh_top[0]<<endl;
-                cout<<"bottom -> "<<lmh_bottom[1]<<" : "<<lmh_top[1]<<endl;
-                cout<<"high -> "<<lmh_bottom[2]<<" : "<<lmh_top[2]<<endl;
+    }
+    if(mode==0){
+        if(key == 'p')cout<<low_ave<<":"<<mid_ave<<":"<<high_ave<<endl;
+        else {
+            if(key == 'q')band_bottom[0]++;
+            else if(key=='a')band_bottom[0]--;
+            else if(key=='w')band_top[0]++;
+            else if(key=='s')band_top[0]--;
+            else if(key=='e')band_bottom[1]++;
+            else if(key=='d')band_bottom[1]--;
+            else if(key=='r')band_top[1]++;
+            else if(key=='f')band_top[1]--;
+            else if(key=='t')band_bottom[2]++;
+            else if(key=='g')band_bottom[2]--;
+            else if(key=='y')band_top[2]++;
+            else if(key=='h')band_top[2]--;
+            for(int i=0;i<3;i++){
+                lmh_length[i] = band_top[i] - band_bottom[i];
             }
-        }else if(mode==1){
-            if(key=='1')lmh_newMin[0]+=rate;
-            else if(key=='q')lmh_newMin[0]-=rate;
-            else if(key=='2')lmh_newMax[0]+=rate;
-            else if(key=='w')lmh_newMax[0]-=rate;
-            else if(key=='3')lmh_newMin[1]+=rate;
-            else if(key=='e')lmh_newMin[1]-=rate;
-            else if(key=='4')lmh_newMax[1]+=rate;
-            else if(key=='r')lmh_newMax[1]-=rate;
-            else if(key=='5')lmh_newMin[2]+=rate;
-            else if(key=='t')lmh_newMin[2]-=rate;
-            else if(key=='6')lmh_newMax[2]+=rate;
-            else if(key=='y')lmh_newMax[2]-=rate;
-            
-            else if(key=='a')lmh_min[0]+=rate;
-            else if(key=='z')lmh_min[0]-=rate;
-            else if(key=='s')lmh_max[0]+=rate;
-            else if(key=='x')lmh_max[0]-=rate;
-            else if(key=='d')lmh_min[1]+=rate;
-            else if(key=='c')lmh_min[1]-=rate;
-            else if(key=='f')lmh_max[1]+=rate;
-            else if(key=='v')lmh_max[1]-=rate;
-            else if(key=='g')lmh_min[2]+=rate;
-            else if(key=='b')lmh_min[2]-=rate;
-            else if(key=='h')lmh_max[2]+=rate;
-            else if(key=='n')lmh_max[2]-=rate;
-            //        cout<<"low"<<lmh_min[0]<<":"<<lmh_max[0]<<":"<<lmh_newMin[0]<<":"<<lmh_newMax[0]<<endl;
-            //        cout<<"mid"<<lmh_min[0]<<":"<<lmh_max[0]<<":"<<lmh_newMin[0]<<":"<<lmh_newMax[0]<<endl;
-            //        cout<<"hig"<<lmh_min[0]<<":"<<lmh_max[0]<<":"<<lmh_newMin[0]<<":"<<lmh_newMax[0]<<endl;
-            //        cout<<"--------------------------------------"<<endl;
         }
-    }
-    
-    //--------------------------------------------------------------
-    void ofApp::mouseMoved(int x, int y ){
+    }else if(mode==1){
+        if(key=='1')map_newMin[0]+=rate;
+        else if(key=='q')map_newMin[0]-=rate;
+        else if(key=='2')map_newMax[0]+=rate;
+        else if(key=='w')map_newMax[0]-=rate;
+        else if(key=='3')map_newMin[1]+=rate;
+        else if(key=='e')map_newMin[1]-=rate;
+        else if(key=='4')map_newMax[1]+=rate;
+        else if(key=='r')map_newMax[1]-=rate;
+        else if(key=='5')map_newMin[2]+=rate;
+        else if(key=='t')map_newMin[2]-=rate;
+        else if(key=='6')map_newMax[2]+=rate;
+        else if(key=='y')map_newMax[2]-=rate;
         
+        else if(key=='a')map_min[0]+=rate;
+        else if(key=='z')map_min[0]-=rate;
+        else if(key=='s')map_max[0]+=rate;
+        else if(key=='x')map_max[0]-=rate;
+        else if(key=='d')map_min[1]+=rate;
+        else if(key=='c')map_min[1]-=rate;
+        else if(key=='f')map_max[1]+=rate;
+        else if(key=='v')map_max[1]-=rate;
+        else if(key=='g')map_min[2]+=rate;
+        else if(key=='b')map_min[2]-=rate;
+        else if(key=='h')map_max[2]+=rate;
+        else if(key=='n')map_max[2]-=rate;
+        //        cout<<"low"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
+        //        cout<<"mid"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
+        //        cout<<"hig"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
+        //        cout<<"--------------------------------------"<<endl;
     }
-    
-    //--------------------------------------------------------------
-    void ofApp::mouseDragged(int x, int y, int button){
-        
+}
+
+//--------------------------------------------------------------
+void ofApp::mousePressed(int x,int y,int button){
+    if((x>=230&&x<330)&&(y>=650&&y<700)){
+        if(!bReset)bReset=true;
     }
+}
+//--------------------------------------------------------------
+void ofApp::mouseReleased(int x,int y,int button){
     
-    //--------------------------------------------------------------
-    void ofApp::mousePressed(int x, int y, int button){
-        
+}
+//--------------------------------------------------------------
+void ofApp::audioReceived 	(float * input, int bufferSize, int nChannels){
+    // samples are "interleaved"
+    for (int i = 0; i < bufferSize; i++){
+        left[i] = input[i*2];
+        right[i] = input[i*2+1];
     }
-    
-    //--------------------------------------------------------------
-    void ofApp::mouseReleased(){
-        
+    bufferCounter++;
+}
+
+//--------------------------------------------------------------
+void ofApp::setPreset (int index){
+    if(index == 1){
+        map_min[0]=2.95,map_min[1]=0.4,map_min[2]=0;
+        map_max[0]=8.05,map_max[1]=0.85,map_max[2]=0.6;
+        map_newMin[0]=0,map_newMin[1]=0,map_newMin[2]=0.05;
+        map_newMax[0]=0.85,map_newMax[1]=1.3,map_newMax[2]=1.2;
+        smoothRate=0.75;
     }
-    
-    //--------------------------------------------------------------
-    void ofApp::audioReceived 	(float * input, int bufferSize, int nChannels){
-        // samples are "interleaved"
-        for (int i = 0; i < bufferSize; i++){
-            left[i] = input[i*2];
-            right[i] = input[i*2+1];
-        }
-        bufferCounter++;
+    else if(index == 0){
+        map_min[0]=0,map_min[1]=0,map_min[2]=0;
+        map_max[0]=5,map_max[1]=1,map_max[2]=0.5;
+        map_newMin[0]=0,map_newMin[1]=0,map_newMin[2]=0;
+        map_newMax[0]=1,map_newMax[1]=1,map_newMax[2]=2;
+        smoothRate = 0.7;
     }
-    
+}
+
