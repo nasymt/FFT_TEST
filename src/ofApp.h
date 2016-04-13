@@ -2,6 +2,7 @@
 
 #include "ofMain.h"
 #include "fft.h"
+#include "math.h"
 
 #define BUFFER_SIZE 256
 #define NUM_WINDOWS 80
@@ -45,9 +46,9 @@ private:
     float low_ave,mid_ave,high_ave;
     int mode;
     float rate,smoothRate;
-    string sBand_data[3];
+//    string sBand_data[3];
 
-    bool bCut[3],bSmooth,bSelectPreset,bReset;
+    bool bCut[3],bSmooth,bSelectPreset,bReset,bAutoMaxGet;
     int preset_index;
 };
 

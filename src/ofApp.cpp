@@ -3,7 +3,7 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
     srand((unsigned int)time((time_t *)NULL));
-    
+
     // 0 output channels,
     // 2 input channels
     // 44100 samples per second
@@ -19,8 +19,7 @@ void ofApp::setup(){
             freq[i][j] = 0;
         }
     }
-    font.loadFont("Avenir.ttc", 14);
-    
+    font.load("Avenir.ttc", 14);
     band_bottom[0]=1,band_bottom[1]=3,band_bottom[2]=50;
     band_top[0]=2,band_top[1]=10,band_top[2]=60;
     map_min[0]=0,map_min[1]=0,map_min[2]=0;
@@ -39,7 +38,6 @@ void ofApp::setup(){
 
 //--------------------------------------------------------------
 void ofApp::update(){
-//    ofBackground(80,80,20);
     ofBackground(150,150,150);
 }
 
@@ -67,9 +65,8 @@ void ofApp::draw(){
         else if(band_bottom[1]<=i&&band_top[1]>i)ofSetColor(0, 255, 0);
         else if(band_bottom[2]<=i&&band_top[2]>i)ofSetColor(0, 0, 255);
         else ofSetColor(50,50,50);
-        ofLine(100+(i*8),400,100+(i*8),400-magnitude[i]*10.0f);
+        ofDrawLine(100+(i*8),400,100+(i*8),400-magnitude[i]*10.0f);
     }
-    
     for(int i=0;i<3;i++){
         for(int j=band_bottom[i];j<band_top[i];j++){
             if(magnitude[j]!=INFINITY)val[i]+=magnitude[j];
@@ -81,7 +78,7 @@ void ofApp::draw(){
         if(temp_val<map_min[i])bCut[i]=true;
         if(temp_val>vol_max[i]){
             vol_max[i]=temp_val;
-            map_max[i]=vol_max[i];
+            if(bAutoMaxGet)map_max[i]=vol_max[i];
         }
         float mapped = ofMap(temp_val,map_min[i],map_max[i],map_newMin[i],map_newMax[i]);
         if(bSmooth){//平滑化あり
@@ -92,15 +89,29 @@ void ofApp::draw(){
             val[i] = mapped;
         }
         
-        
         if(bCut[i]){//一定値以下切り捨て
             bCut[i]=false;
             val[i]=0;
         }
-        ofCircle(200+i*300, 100, val[i]*50);
+        ofDrawCircle(200+i*300, 100, val[i]*50);
         string string_index[] = {"low:","mid:","high:"};
-        sBand_data[i] =ofToString(string_index[i])+ofToString(map_min[i])+":"+ofToString(map_max[i])+":"+ofToString(map_newMin[i])+":"+ofToString(map_newMax[i])+"  val:"+ofToString(temp_val);
-        ofDrawBitmapString(sBand_data[i], 100, 480+i*30);
+        /*-------四捨五入----------*/
+        float tmp = map_min[i]*100;
+        tmp=round(tmp);
+        map_min[i]=tmp/100;
+        tmp = map_max[i]*100;
+        tmp = round(tmp);
+        map_max[i]=tmp/100;
+        
+        
+/*        sBand_data[i] =ofToString(string_index[i])+ofToString(map_min[i])+":"+ofToString(map_max[i])+":"+ofToString(map_newMin[i])+":"+ofToString(map_newMax[i])+"  val:"+ofToString(temp_val);
+        ofDrawBitmapString(sBand_data[i], 100, 480+i*30);*/
+        ofDrawBitmapString(ofToString(string_index[i]), 50, 480+i*30);
+        ofDrawBitmapString(ofToString(map_min[i]), 100, 480+i*30);
+        ofDrawBitmapString(ofToString(map_max[i]), 150, 480+i*30);
+        ofDrawBitmapString(ofToString(map_newMin[i]), 200, 480+i*30);
+        ofDrawBitmapString(ofToString(map_newMax[i]), 250, 480+i*30);
+        ofDrawBitmapString(ofToString(temp_val),300,480+i*30);
     }
     
     ofSetColor(255);
@@ -111,39 +122,47 @@ void ofApp::draw(){
     
     if(bSmooth){
         ofSetColor(200, 0, 103);
-        ofRect(100,650,100,50);
+        ofDrawRectangle(100,650,100,50);
         ofSetColor(0, 0, 0);
         font.drawString("smooth", 115, 678);
     }
     else{
         ofSetColor(0, 0, 0);
-        ofRect(100,650,100,50);
+        ofDrawRectangle(100,650,100,50);
         ofSetColor(200, 0, 103);
         font.drawString("no smooth", 105, 678);
     }
     
     if(!bReset){
         ofSetColor(0, 0, 0);
-        ofRect(230, 650, 100, 50);
+        ofDrawRectangle(230, 650, 100, 50);
         ofSetColor(200, 0, 103);
         font.drawString("Reset", 245, 678);
     }else {
         ofSetColor(200, 0, 103);
-        ofRect(230,650,100,50);
+        ofDrawRectangle(230,650,100,50);
         ofSetColor(0, 0, 0);
         font.drawString("Reset", 245, 678);
         bReset=false;
         for(int i=0;i<3;i++)vol_max[i]=0;
     }
     
-    
+    if(bAutoMaxGet){
+        ofSetColor(200, 0, 103);
+        ofDrawRectangle(360, 650, 100, 50);
+        ofSetColor(0, 0, 0);
+        font.drawString("AutoGetMax", 370, 678);
+    }else{
+        ofSetColor(0, 0, 0);
+        ofDrawRectangle(360, 650, 100, 50);
+        ofSetColor(200,0,103);
+        font.drawString("ManualGet", 370, 678);
+    }
     for(int i=0;i<3;i++){
         rect_color[i] = ofMap(val[i], 0, 2, 0, 255);
         ofSetColor(rect_color[i], rect_color[i], rect_color[i]);
-        ofRect(400+i*200,450,150,150);
+        ofDrawRectangle(400+i*200,450,150,150);
     }
-    
-    
 }
 
 
@@ -229,10 +248,6 @@ void ofApp::keyPressed  (int key){
         else if(key=='b')map_min[2]-=rate;
         else if(key=='h')map_max[2]+=rate;
         else if(key=='n')map_max[2]-=rate;
-        //        cout<<"low"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
-        //        cout<<"mid"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
-        //        cout<<"hig"<<map_min[0]<<":"<<map_max[0]<<":"<<map_newMin[0]<<":"<<map_newMax[0]<<endl;
-        //        cout<<"--------------------------------------"<<endl;
     }
 }
 
@@ -240,6 +255,10 @@ void ofApp::keyPressed  (int key){
 void ofApp::mousePressed(int x,int y,int button){
     if((x>=230&&x<330)&&(y>=650&&y<700)){
         if(!bReset)bReset=true;
+    }
+    if((x>=360&&x<460)&&(y>=650&&y<700)){
+        if(!bAutoMaxGet)bAutoMaxGet=true;
+        else bAutoMaxGet=false;
     }
 }
 //--------------------------------------------------------------
