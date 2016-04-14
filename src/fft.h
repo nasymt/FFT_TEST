@@ -23,12 +23,15 @@ class fft {
 	
     /*-----add myCode-----*/
     float lmh_length[BAND_NUM],map_min[BAND_NUM],map_max[BAND_NUM],band_bottom[BAND_NUM],band_top[BAND_NUM],val[BAND_NUM],map_newMin[BAND_NUM],map_newMax[BAND_NUM],pre_ave[BAND_NUM],pre_val[BAND_NUM];
-    float vol_max[BAND_NUM];
+    float vol_max[BAND_NUM],temp_val;
     bool bCut[BAND_NUM],bSmooth,bSelectPreset,bReset,bAutoMaxGet;
     int preset_index;
-
-    void update(float *magni);
+    float smoothRate,rate;
     
+    void update(float *magni,int i);
+    void setup();
+    void changeBandRange(int key);
+    void changeParam(int key);
     
 };
 

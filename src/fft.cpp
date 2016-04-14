@@ -398,8 +398,7 @@ void WindowFunc(int whichFunction, int NumSamples, float *in)
 
 /* constructor */
 fft::fft() {
- 	
- 	
+
 }
 
 /* destructor */
@@ -480,13 +479,102 @@ void fft::inversePowerSpectrum(int start, int half, int windowSize, float *final
 }
 
 /*---------------後から追加-------------*/
-void fft::update(float *magni){
+void fft::setup(){
+    band_bottom[0]=1,band_bottom[1]=3,band_bottom[2]=50;
+    band_top[0]=2,band_top[1]=10,band_top[2]=60;
+    map_min[0]=0,map_min[1]=0,map_min[2]=0;
+    map_max[0]=5,map_max[1]=1,map_max[2]=0.5;
+    map_newMin[0]=0,map_newMin[1]=0,map_newMin[2]=0;
+    map_newMax[0]=1,map_newMax[1]=1,map_newMax[2]=2;
+    rate=0.05;
+    smoothRate = 0.7;
     for(int i=0;i<3;i++){
+        lmh_length[i] = band_top[i] - band_bottom[i];
+        pre_val[i]=1;
+    }
+}
+
+void fft::update(float *magni,int i){
         for(int j=band_bottom[i];j<band_top[i];j++){
             if(magni[j]!=INFINITY)val[i]+=magni[j];
         }
-        float temp_val = val[i]/lmh_length[i];
-    }
+        temp_val = val[i]/lmh_length[i];
+        if(temp_val<map_min[i])bCut[i]=true;
+        if(temp_val>vol_max[i]){
+            vol_max[i]=temp_val;
+            if(bAutoMaxGet)map_max[i]=vol_max[i];
+        }
+        
+        //float mapped = ofMap(temp_val,map_min[i],map_max[i],map_newMin[i],map_newMax[i]);
+        //------マニュアルマップ関数
+        float oldRate=temp_val/(map_max[i]-map_min[i]);
+        float mapped = (map_newMax[i]-map_newMin[i])*oldRate+map_newMin[i];
+        
+        
+        if(bSmooth){//平滑化あり
+            pre_ave[i] = mapped;
+            val[i] = smoothRate*pre_ave[i] + (1-smoothRate)*pre_val[i];
+            pre_val[i]=val[i];
+        }else{//平滑化なし
+            val[i] = mapped;
+        }
+        
+        if(bCut[i]){//一定値以下切り捨て
+            bCut[i]=false;
+            val[i]=0;
+        }
+        /*-------四捨五入----------*/
+        float tmp = map_min[i]*100;
+        tmp=round(tmp);
+        map_min[i]=tmp/100;
+        tmp = map_max[i]*100;
+        tmp = round(tmp);
+        map_max[i]=tmp/100;
+}
 
+void fft::changeBandRange(int key){
+    if(key == 'q')band_bottom[0]++;
+    else if(key=='a')band_bottom[0]--;
+    else if(key=='w')band_top[0]++;
+    else if(key=='s')band_top[0]--;
+    else if(key=='e')band_bottom[1]++;
+    else if(key=='d')band_bottom[1]--;
+    else if(key=='r')band_top[1]++;
+    else if(key=='f')band_top[1]--;
+    else if(key=='t')band_bottom[2]++;
+    else if(key=='g')band_bottom[2]--;
+    else if(key=='y')band_top[2]++;
+    else if(key=='h')band_top[2]--;
+    for(int i=0;i<3;i++){
+        lmh_length[i] = band_top[i] - band_bottom[i];
+    }
+}
+
+void fft::changeParam(int key){
+     if(key=='1')map_newMin[0]+=rate;
+     else if(key=='q')map_newMin[0]-=rate;
+     else if(key=='2')map_newMax[0]+=rate;
+     else if(key=='w')map_newMax[0]-=rate;
+     else if(key=='3')map_newMin[1]+=rate;
+     else if(key=='e')map_newMin[1]-=rate;
+     else if(key=='4')map_newMax[1]+=rate;
+     else if(key=='r')map_newMax[1]-=rate;
+     else if(key=='5')map_newMin[2]+=rate;
+     else if(key=='t')map_newMin[2]-=rate;
+     else if(key=='6')map_newMax[2]+=rate;
+     else if(key=='y')map_newMax[2]-=rate;
+     
+     else if(key=='a')map_min[0]+=rate;
+     else if(key=='z')map_min[0]-=rate;
+     else if(key=='s')map_max[0]+=rate;
+     else if(key=='x')map_max[0]-=rate;
+     else if(key=='d')map_min[1]+=rate;
+     else if(key=='c')map_min[1]-=rate;
+     else if(key=='f')map_max[1]+=rate;
+     else if(key=='v')map_max[1]-=rate;
+     else if(key=='g')map_min[2]+=rate;
+     else if(key=='b')map_min[2]-=rate;
+     else if(key=='h')map_max[2]+=rate;
+     else if(key=='n')map_max[2]-=rate;
     
 }
